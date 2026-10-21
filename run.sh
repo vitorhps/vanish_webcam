@@ -31,6 +31,22 @@ fi
 if [[ -z "${DISPLAY:-}" && -n "${WAYLAND_DISPLAY:-}" ]]; then
   echo "[Vanish] OpenCV windows need XWayland (DISPLAY is empty)."
 fi
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
+export QT_QPA_PLATFORM=xcb
+
+camera=0
+prev=""
+for arg in "$@"; do
+  [[ "$prev" == "--camera" ]] && camera="$arg"
+  [[ "$arg" == --camera=* ]] && camera="${arg#--camera=}"
+  prev="$arg"
+done
+if command -v fuser >/dev/null && [[ -e "/dev/video$camera" ]]; then
+  pids=$(fuser "/dev/video$camera" 2>/dev/null || true)
+  if [[ -n "${pids// /}" ]]; then
+    echo "[Vanish] /dev/video$camera is in use by: $(ps -o comm= -p "$(echo "$pids" | tr -s ' ' ',' | sed 's/^,//')" | sort -u | tr '\n' ' ')"
+    echo "[Vanish] Close the app or tab using the webcam and run again."
+    exit 1
+  fi
+fi
 
 exec "$PY" vanish_cam.py "$@"

@@ -161,23 +161,20 @@ def choose_mode() -> str | None:
 def open_virtual_camera(args: argparse.Namespace, width: int, height: int):
     if args.virtual_camera is False:
         return None
-    backend = args.virtual_backend
-    if backend is None and platform.system() == "Linux":
-        backend = "v4l2loopback"
     try:
         import pyvirtualcam
 
         camera = pyvirtualcam.Camera(
             width=width, height=height, fps=args.fps,
             fmt=pyvirtualcam.PixelFormat.BGR,
-            backend=backend, device=args.virtual_device,
+            backend=args.virtual_backend, device=args.virtual_device,
         )
     except (ImportError, RuntimeError, OSError, ValueError) as error:
         if platform.system() == "Linux":
             message = (
-                "Virtual camera not available. Load v4l2loopback first: "
+                "Webcam virtuale non disponibile. Carica v4l2loopback: "
                 "sudo modprobe v4l2loopback exclusive_caps=1 card_label=\"Vanish Cam\". "
-                f"Detail: {error}"
+                f"Dettaglio: {error}"
             )
         else:
             message = (
@@ -245,6 +242,9 @@ def open_camera(index: int, width: int, height: int) -> cv2.VideoCapture:
         capture = cv2.VideoCapture(index, cv2.CAP_V4L2)
         if capture.isOpened():
             capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        else:
+            capture.release()
+            capture = cv2.VideoCapture(index)
     else:
         capture = cv2.VideoCapture(index)
 
