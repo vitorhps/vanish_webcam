@@ -13,6 +13,9 @@ from dataclasses import dataclass, replace
 from contextlib import ExitStack
 from pathlib import Path
 
+if platform.system() == "Linux":
+    sys.modules.setdefault("sounddevice", None)
+
 import cv2
 import mediapipe as mp
 import numpy as np
