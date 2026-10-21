@@ -13,6 +13,9 @@ from dataclasses import dataclass, replace
 from contextlib import ExitStack
 from pathlib import Path
 
+if platform.system() == "Linux":
+    sys.modules.setdefault("sounddevice", None)
+
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -158,22 +161,32 @@ def choose_mode() -> str | None:
 def open_virtual_camera(args: argparse.Namespace, width: int, height: int):
     if args.virtual_camera is False:
         return None
+    backend = args.virtual_backend
+    if backend is None and platform.system() == "Linux":
+        backend = "v4l2loopback"
     try:
         import pyvirtualcam
 
         camera = pyvirtualcam.Camera(
             width=width, height=height, fps=args.fps,
             fmt=pyvirtualcam.PixelFormat.BGR,
-            backend=args.virtual_backend, device=args.virtual_device,
+            backend=backend, device=args.virtual_device,
         )
     except (ImportError, RuntimeError, OSError, ValueError) as error:
-        message = (
-            "Webcam virtuale non disponibile. Installa OBS Studio (con il driver "
-            "OBS Virtual Camera) oppure Unity Capture. Se usi OBS Virtual Camera, "
-            "ferma 'Avvia fotocamera virtuale' in OBS. "
-            "Avvia da AVVIA_LOCALE.bat per installare pyvirtualcam. "
-            f"Dettaglio: {error}"
-        )
+        if platform.system() == "Linux":
+            message = (
+                "Virtual camera not available. Load v4l2loopback first: "
+                "sudo modprobe v4l2loopback exclusive_caps=1 card_label=\"Vanish Cam\". "
+                f"Detail: {error}"
+            )
+        else:
+            message = (
+                "Webcam virtuale non disponibile. Installa OBS Studio (con il driver "
+                "OBS Virtual Camera) oppure Unity Capture. Se usi OBS Virtual Camera, "
+                "ferma 'Avvia fotocamera virtuale' in OBS. "
+                "Avvia da AVVIA_LOCALE.bat per installare pyvirtualcam. "
+                f"Dettaglio: {error}"
+            )
         if args.virtual_camera is True or args.virtual_backend or args.virtual_device:
             raise RuntimeError(message) from error
         print(f"[Webcam] {message}\n[Webcam] Proseguo con l'anteprima locale.")
@@ -228,6 +241,10 @@ def open_camera(index: int, width: int, height: int) -> cv2.VideoCapture:
         if not capture.isOpened():
             capture.release()
             capture = cv2.VideoCapture(index)
+    elif platform.system() == "Linux":
+        capture = cv2.VideoCapture(index, cv2.CAP_V4L2)
+        if capture.isOpened():
+            capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
     else:
         capture = cv2.VideoCapture(index)
 
